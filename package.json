@@ -1,0 +1,14 @@
+{
+    "name": "kandi",
+    "version": "0.0.1",
+    "description": "A minimal creative coding toolkit.",
+    "bin": {
+        "kandi": "./kandi.js"
+    },
+    "author": "Daan Van Cauteren",
+    "license": "ISC",
+    "dependencies": {
+        "chokidar": "^5.0.0",
+        "ws": "^8.21.1"
+    }
+}
