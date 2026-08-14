@@ -8,6 +8,7 @@
     "author": "Daan Van Cauteren",
     "license": "ISC",
     "dependencies": {
+        "kandi-tools": "file:../kandi-tools",
         "chokidar": "^5.0.0",
         "ws": "^8.21.1"
     }

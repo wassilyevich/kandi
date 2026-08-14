@@ -10,6 +10,9 @@ const { spawn } = require("child_process");
 const cwd = process.cwd();
 const defaultFilesPath = path.join(__dirname, "default");
 const dataPath = path.join(__dirname, "data");
+const kandiToolsPath = path.dirname(
+    require.resolve("kandi-tools/package.json"),
+);
 const configPath = path.join(os.homedir(), ".kandi", "config.json");
 let globalConfig = {};
 if (fs.existsSync(configPath)) {
@@ -27,6 +30,7 @@ let isJump = false;
 let outputPath = "";
 let isConfig = false;
 let verbose = false;
+let useTools = false;
 
 // Start of argument parsing of the CLI tool
 // Each argument that is passed is checked against the available commands
@@ -74,6 +78,9 @@ for (let i = 0; i < args.length; i++) {
     } else if (args[i] === "--verbose") {
         // Triggering verbose output
         verbose = true;
+    } else if (args[i] === "--tools") {
+        // Choose different template including kandi tools
+        useTools = true;
     }
 }
 
@@ -123,12 +130,55 @@ function newSketch() {
     const baseName = path.basename(sketchName, ".js");
     const newSketchPath = path.join(cwd, baseName);
     fs.mkdirSync(newSketchPath);
-    fs.cpSync(defaultFilesPath, newSketchPath, { recursive: true });
-    fs.cpSync(dataPath, newSketchPath, { recursive: true });
-    fs.renameSync(
-        path.join(newSketchPath, "sketch.js"),
-        path.join(newSketchPath, baseName + ".js"),
+    fs.copyFileSync(
+        path.join(defaultFilesPath, "runner.js"),
+        path.join(newSketchPath, "runner.js"),
     );
+    // Copy index.html and sketch.js based on template flag (currently no flag or tools)
+    if (useTools) {
+        fs.copyFileSync(
+            path.join(defaultFilesPath, "index.tools.html"),
+            path.join(newSketchPath, "index.html"),
+        );
+        fs.copyFileSync(
+            path.join(defaultFilesPath, "sketch.tools.js"),
+            path.join(newSketchPath, `${baseName}.js`),
+        );
+        // Copy kandi-tools into sketch folder
+        fs.cpSync(kandiToolsPath, path.join(newSketchPath, "kandi-tools"), {
+            recursive: true,
+        });
+
+        fs.copyFileSync(
+            path.join(defaultFilesPath, "jsconfig.tools.json"),
+            path.join(newSketchPath, "jsconfig.json"),
+        );
+        fs.copyFileSync(
+            path.join(dataPath, "paper-sizes.js"),
+            path.join(newSketchPath, "paper-sizes.js"),
+        );
+        fs.copyFileSync(
+            path.join(dataPath, "units.js"),
+            path.join(newSketchPath, "units.js"),
+        );
+    } else {
+        fs.copyFileSync(
+            path.join(defaultFilesPath, "index.html"),
+            path.join(newSketchPath, "index.html"),
+        );
+        fs.copyFileSync(
+            path.join(defaultFilesPath, "sketch.js"),
+            path.join(newSketchPath, `${baseName}.js`),
+        );
+        fs.copyFileSync(
+            path.join(dataPath, "paper-sizes.js"),
+            path.join(newSketchPath, "paper-sizes.js"),
+        );
+        fs.copyFileSync(
+            path.join(dataPath, "units.js"),
+            path.join(newSketchPath, "units.js"),
+        );
+    }
 
     const runnerPath = path.join(newSketchPath, "runner.js");
     const runnerContent = fs.readFileSync(runnerPath, "utf8");
