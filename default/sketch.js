@@ -18,7 +18,7 @@ export const exportSettings = {
 
 // Sketch function called by the runner to be rendered onto the canvas
 // Returned function takes in values based on the settings
-const sketch = () => {
+const sketch = ({ width, height, units, dpi }) => {
     // "Constructor" for single setup calculations and maximum reproducibility
     // ^^^^^^^^^^^^^^
 

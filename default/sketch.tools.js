@@ -2,6 +2,7 @@
 // import { convexHull, grahamScan } from 'kandi-tools/geometry';
 // import { kmeans } from 'kandi-tools/analysis';
 // import { mapRange, lerp, clamp } from 'kandi-tools/math';
+// import { createSVG, addLayer, addPolyline } from 'kandi-tools/svg';
 // Standard sketch settings:
 export const settings = {
     dimensions: [500, 500], //in units; can also be "A4" for example.
@@ -22,7 +23,7 @@ export const exportSettings = {
 
 // Sketch function called by the runner to be rendered onto the canvas
 // Returned function takes in values based on the settings
-const sketch = () => {
+const sketch = ({ width, height, dpi, units }) => {
     // "Constructor" for single setup calculations and maximum reproducibility
     // ^^^^^^^^^^^^^^
 

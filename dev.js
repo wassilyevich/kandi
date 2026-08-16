@@ -74,16 +74,19 @@ chokidar
         });
     });
 
-// Handle exporting of the png files through the user triggered export action (ctrl + s) in the browser
+// Handle exporting of files through the user triggered export action in the browser
 wss.on("connection", (client) => {
     client.on("message", (message) => {
         const msg = JSON.parse(message);
         if (msg.type === "export") {
-            // Parse the data string to a png file using the correct protocol
             const buffer = Buffer.from(msg.data, "base64");
             fs.mkdirSync(outputPath, { recursive: true });
             fs.writeFileSync(path.join(outputPath, msg.filename), buffer);
-        } else if (msg.type === "reload") {
+            console.log(`Exported .png: ${msg.filename} to ${outputPath}`);
+        } else if (msg.type === "svg-export") {
+            fs.mkdirSync(outputPath, { recursive: true });
+            fs.writeFileSync(path.join(outputPath, msg.filename), msg.data);
+            console.log(`Exported .svg: ${msg.filename} to ${outputPath}`);
         }
     });
 });

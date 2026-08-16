@@ -4,6 +4,13 @@
 import sketch, { settings, exportSettings } from "./sketch.js";
 import paperSizes from "./paper-sizes.js";
 import validUnits from "./units.js";
+let svgToString = null;
+try {
+    const svgModule = await import("kandi-tools/svg");
+    svgToString = svgModule.toString;
+} catch {
+    // kandi-tools not available, SVG export disabled
+}
 
 // Start the websocket so the http server and the browser have an open line
 const ws = new WebSocket("ws://localhost:3000");
@@ -93,6 +100,10 @@ if (settings.hasOwnProperty("dimensions")) {
     throw new Error("No dimensions are provided in the settings object.");
 }
 
+// UNIT DIMENSIONS
+const unitWidth = dimensions[0];
+const unitHeight = dimensions[1];
+
 // Actually resolve/rescale dimensions based on provided DPI and units
 if (units === "px" && baseUnits === "px") {
     // pure pixel dimensions, no conversion needed
@@ -110,30 +121,35 @@ if (units === "px" && baseUnits === "px") {
 }
 
 // Actually setting up the canvas and context
-const width = dimensions[0];
-const height = dimensions[1];
-canvas.width = width;
-canvas.height = height;
+const pixelWidth = dimensions[0];
+const pixelHeight = dimensions[1];
+canvas.width = pixelWidth;
+canvas.height = pixelHeight;
 const context = canvas.getContext("2d");
+
+// Set scale factor for incoming sketch based on units and dpi
+const scale = pixelWidth / unitWidth;
+context.scale(scale, scale);
 // Call sketch() once to run setup code, get back the render function
-const render = sketch();
+const render = sketch({ width: unitWidth, height: unitHeight, dpi, units });
 
 // Define an animation loop renderer
 const loop = (timestamp) => {
     if (settings.clear) {
-        context.clearRect(0, 0, width, height);
+        context.clearRect(0, 0, unitWidth, unitHeight);
     }
-    render({ context, width, height, time: timestamp });
+    render({ context, width: unitWidth, height: unitHeight, time: timestamp });
     requestAnimationFrame(loop);
 };
 
 // Actual rendering
 // - Animated
 // - Static
+let renderResult = {};
 if (settings.animate) {
     requestAnimationFrame(loop);
 } else {
-    render({ context, width, height });
+    renderResult = render({ context, width: unitWidth, height: unitHeight });
 }
 
 // fitToViewport utility function to make sure the canvas is always nicely centered in the window
@@ -141,8 +157,8 @@ const fitToViewport = () => {
     const padding = 0.9;
     const scaleX = (window.innerWidth * padding) / canvas.width;
     const scaleY = (window.innerHeight * padding) / canvas.height;
-    const scale = Math.min(scaleX, scaleY);
-    canvas.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    const scaleFit = Math.min(scaleX, scaleY);
+    canvas.style.transform = `translate(-50%, -50%) scale(${scaleFit})`;
 };
 
 // Check for resizes and use the fitToViewport() function if so
@@ -150,7 +166,7 @@ fitToViewport();
 window.addEventListener("resize", fitToViewport);
 
 //---------------------------------------------------------------------------------------------
-// Exporting an image
+// Exporting an image, SVG
 
 // Initialize required variables for export naming
 let prefix = null;
@@ -162,7 +178,6 @@ let date =
     (today.getMonth() + 1).toString().padStart(2, "0") +
     today.getDate().toString().padStart(2, "0");
 let suffix = null;
-let ext = ".png";
 
 // Based on input, check if it is valid
 if (exportSettings.hasOwnProperty("prefix")) {
@@ -215,6 +230,7 @@ window.onkeydown = keyListener;
 window.onkeyup = keyListener;
 let exportKeys = {};
 let exportCount = 0;
+let svgExportCount = 0;
 let imageData = "";
 function keyListener(event) {
     exportKeys[event.key] = event.type == "keydown";
@@ -224,22 +240,15 @@ function keyListener(event) {
         event.preventDefault();
         exportCount++;
         const count = exportCount.toString().padStart(3, "0");
-        let exportName = "";
-        if (prefix !== null) {
-            exportName += prefix + "-";
-        }
-        if (custom !== null) {
-            exportName += custom + "-";
-        }
-        if (seed !== null) {
-            exportName += seed + "-";
-        }
-        exportName += date;
-        if (suffix !== null) {
-            exportName += "-" + suffix + "-" + count + ext;
-        } else {
-            exportName += count + ext;
-        }
+        const exportName = buildExportName(
+            prefix,
+            custom,
+            seed,
+            date,
+            suffix,
+            count,
+            ".png",
+        );
         imageData = canvas.toDataURL().split(",")[1];
         ws.send(
             JSON.stringify({
@@ -248,5 +257,79 @@ function keyListener(event) {
                 data: imageData,
             }),
         );
+    } else if (exportKeys["Control"] && exportKeys["e"]) {
+        event.preventDefault();
+        svgExportCount++;
+        // Check if we can export an svg
+        if (!renderResult || !renderResult.hasOwnProperty("svgDocs")) {
+            return;
+        }
+        const svgDocs = renderResult.svgDocs;
+        // Loop over all objects to export
+        for (let i = 0; i < svgDocs.length; i++) {
+            const doc = svgDocs[i];
+            const count = svgExportCount.toString().padStart(3, "0");
+            // Based on input, check if it is valid
+            const docPrefix = resolveStringField(
+                doc.prefix,
+                prefix,
+                "doc.prefix",
+            );
+            const docCustom = resolveStringField(
+                doc.custom,
+                custom,
+                "doc.custom",
+            );
+            const docSeed = resolveStringField(doc.seed, seed, "doc.seed");
+            const docSuffix = resolveStringField(
+                doc.suffix,
+                suffix,
+                "doc.suffix",
+            );
+            const exportName = buildExportName(
+                docPrefix,
+                docCustom,
+                docSeed,
+                date,
+                docSuffix,
+                count,
+                ".svg",
+            );
+            if (!svgToString) {
+                console.warn(
+                    "SVG export not available — kandi-tools/svg not loaded",
+                );
+                return;
+            }
+            const svgData = svgToString(doc.svgDoc);
+            ws.send(
+                JSON.stringify({
+                    type: "svg-export",
+                    filename: exportName,
+                    data: svgData,
+                }),
+            );
+        }
     }
+}
+
+function buildExportName(prefix, custom, seed, date, suffix, count, ext) {
+    let name = "";
+    if (prefix !== null) name += prefix + "-";
+    if (custom !== null) name += custom + "-";
+    if (seed !== null) name += seed + "-";
+    name += date;
+    if (suffix !== null) {
+        name += "-" + suffix + "-" + count + ext;
+    } else {
+        name += count + ext;
+    }
+    return name;
+}
+
+function resolveStringField(value, fallback, fieldName) {
+    if (value === undefined || value === null) return fallback;
+    if (typeof value !== "string")
+        throw new Error(`${fieldName} must be a string`);
+    return value;
 }
