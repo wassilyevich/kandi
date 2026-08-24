@@ -229,8 +229,8 @@ if (exportSettings.hasOwnProperty("suffix")) {
 window.onkeydown = keyListener;
 window.onkeyup = keyListener;
 let exportKeys = {};
-let exportCount = 0;
-let svgExportCount = 0;
+let exportCount = parseInt(sessionStorage.getItem("exportCount") || "0");
+let svgExportCount = parseInt(sessionStorage.getItem("svgExportCount") || "0");
 let imageData = "";
 function keyListener(event) {
     exportKeys[event.key] = event.type == "keydown";
@@ -239,6 +239,7 @@ function keyListener(event) {
     if (exportKeys["Control"] && exportKeys["s"]) {
         event.preventDefault();
         exportCount++;
+        sessionStorage.setItem("exportCount", exportCount);
         const count = exportCount.toString().padStart(3, "0");
         const exportName = buildExportName(
             prefix,
@@ -260,6 +261,7 @@ function keyListener(event) {
     } else if (exportKeys["Control"] && exportKeys["e"]) {
         event.preventDefault();
         svgExportCount++;
+        sessionStorage.setItem("svgExportCount", svgExportCount);
         // Check if we can export an svg
         if (!renderResult || !renderResult.hasOwnProperty("svgDocs")) {
             return;
