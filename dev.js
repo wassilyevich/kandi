@@ -55,7 +55,7 @@ server.listen(PORT, () => {
 });
 
 // Create a Websocket server that shares the same PORT as the server
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ server, maxPayload: 50 * 1024 * 1024 });
 
 // Watch for file changes and notity browser to trigger reload() (i.e. hot reloading)
 chokidar
@@ -76,6 +76,9 @@ chokidar
 
 // Handle exporting of files through the user triggered export action in the browser
 wss.on("connection", (client) => {
+    client.on("error", (err) => {
+        console.error("Websocket client error:", err.message);
+    });
     client.on("message", (message) => {
         const msg = JSON.parse(message);
         if (msg.type === "export") {
