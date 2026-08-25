@@ -3,6 +3,7 @@
 // import { kmeans } from 'kandi-tools/analysis';
 // import { mapRange, lerp, clamp } from 'kandi-tools/math';
 // import { createSVG, addLayer, addPolyline } from 'kandi-tools/svg';
+// import {createNoise} from 'kandi-tools/random';
 // Standard sketch settings:
 export const settings = {
     dimensions: [500, 500], //in units; can also be "A4" for example.
