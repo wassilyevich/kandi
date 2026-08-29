@@ -131,189 +131,187 @@ const context = canvas.getContext("2d");
 const scale = pixelWidth / unitWidth;
 context.scale(scale, scale);
 // Call sketch() once to run setup code, get back the render function
-const render = sketch({ width: unitWidth, height: unitHeight, dpi, units });
-
-// Define an animation loop renderer
-const loop = (timestamp) => {
-    if (settings.clear) {
-        context.clearRect(0, 0, unitWidth, unitHeight);
-    }
-    render({ context, width: unitWidth, height: unitHeight, time: timestamp });
-    requestAnimationFrame(loop);
-};
-
-// Actual rendering
-// - Animated
-// - Static
-let renderResult = {};
-if (settings.animate) {
-    requestAnimationFrame(loop);
-} else {
-    renderResult = render({ context, width: unitWidth, height: unitHeight });
-}
-
-// fitToViewport utility function to make sure the canvas is always nicely centered in the window
-const fitToViewport = () => {
-    const padding = 0.9;
-    const scaleX = (window.innerWidth * padding) / canvas.width;
-    const scaleY = (window.innerHeight * padding) / canvas.height;
-    const scaleFit = Math.min(scaleX, scaleY);
-    canvas.style.transform = `translate(-50%, -50%) scale(${scaleFit})`;
-};
-
-// Check for resizes and use the fitToViewport() function if so
-fitToViewport();
-window.addEventListener("resize", fitToViewport);
-
-//---------------------------------------------------------------------------------------------
-// Exporting an image, SVG
-
-// Initialize required variables for export naming
-let prefix = null;
-let custom = null;
-let seed = null;
-let today = new Date();
-let date =
-    today.getFullYear().toString() +
-    (today.getMonth() + 1).toString().padStart(2, "0") +
-    today.getDate().toString().padStart(2, "0");
-let suffix = null;
-
-// Based on input, check if it is valid
-if (exportSettings.hasOwnProperty("prefix")) {
-    if (typeof exportSettings.prefix === "string") {
-        prefix = exportSettings.prefix;
-    } else {
-        throw new Error(
-            "Prefix defined in export settings object has not the type of String.",
-        );
-    }
-}
-
-if (exportSettings.hasOwnProperty("custom")) {
-    if (typeof exportSettings.custom === "string") {
-        custom = exportSettings.custom;
-    } else {
-        throw new Error(
-            "Custom input defined in export settings object has not the type of String.",
-        );
-    }
-}
-
-if (exportSettings.hasOwnProperty("seed")) {
-    if (typeof exportSettings.seed === "string") {
-        seed = exportSettings.seed;
-    } else {
-        throw new Error(
-            "Seed input defined in export settings object has not the type of String.",
-        );
-    }
-}
-
-if (exportSettings.hasOwnProperty("suffix")) {
-    if (typeof exportSettings.suffix === "string") {
-        suffix = exportSettings.suffix;
-    } else {
-        throw new Error(
-            "Suffix input defined in export settings object has not the type of String.",
-        );
-    }
-}
-
-// The keyListener function listens to keyup + keydown actions
-// all keys pushed down + released are tracked in exportKeys
-// is both ctrl + s are true together, the keyListener function triggers the export:
-// - Constructing the name based on the provided parameters
-// - Converting the canvas to a dataURL and stringifying it
-// - Sending it through the Websocket to the server side (node)
-window.onkeydown = keyListener;
-window.onkeyup = keyListener;
-let exportKeys = {};
-let exportCount = parseInt(sessionStorage.getItem("exportCount") || "0");
-let svgExportCount = parseInt(sessionStorage.getItem("svgExportCount") || "0");
-let imageData = "";
-function keyListener(event) {
-    exportKeys[event.key] = event.type == "keydown";
-    // console.log(`${event.key}`);
-    // console.log(exportKeys);
-    if (exportKeys["Control"] && exportKeys["s"]) {
-        event.preventDefault();
-        exportCount++;
-        sessionStorage.setItem("exportCount", exportCount);
-        const count = exportCount.toString().padStart(3, "0");
-        const exportName = buildExportName(
-            prefix,
-            custom,
-            seed,
-            date,
-            suffix,
-            count,
-            ".png",
-        );
-        imageData = canvas.toDataURL().split(",")[1];
-        ws.send(
-            JSON.stringify({
-                type: "export",
-                filename: exportName,
-                data: imageData,
-            }),
-        );
-    } else if (exportKeys["Control"] && exportKeys["e"]) {
-        event.preventDefault();
-        svgExportCount++;
-        sessionStorage.setItem("svgExportCount", svgExportCount);
-        // Check if we can export an svg
-        if (!renderResult || !renderResult.hasOwnProperty("svgDocs")) {
-            return;
+(async () => {
+    const result = sketch({ width: unitWidth, height: unitHeight, dpi, units });
+    const render = result instanceof Promise ? await result : result;
+    // Define an animation loop renderer
+    const loop = (timestamp) => {
+        if (settings.clear) {
+            context.clearRect(0, 0, unitWidth, unitHeight);
         }
-        const svgDocs = renderResult.svgDocs;
-        // Loop over all objects to export
-        for (let i = 0; i < svgDocs.length; i++) {
-            const doc = svgDocs[i];
-            const count = svgExportCount.toString().padStart(3, "0");
-            // Based on input, check if it is valid
-            const docPrefix = resolveStringField(
-                doc.prefix,
-                prefix,
-                "doc.prefix",
+        render({
+            context,
+            width: unitWidth,
+            height: unitHeight,
+            time: timestamp,
+        });
+        requestAnimationFrame(loop);
+    };
+
+    // Actual rendering
+    // - Animated
+    // - Static
+    let renderResult = {};
+    if (settings.animate) {
+        requestAnimationFrame(loop);
+    } else {
+        renderResult = render({
+            context,
+            width: unitWidth,
+            height: unitHeight,
+        });
+    }
+
+    //---------------------------------------------------------------------------------------------
+    // Exporting an image, SVG
+
+    // Initialize required variables for export naming
+    let prefix = null;
+    let custom = null;
+    let seed = null;
+    let today = new Date();
+    let date =
+        today.getFullYear().toString() +
+        (today.getMonth() + 1).toString().padStart(2, "0") +
+        today.getDate().toString().padStart(2, "0");
+    let suffix = null;
+
+    // Based on input, check if it is valid
+    if (exportSettings.hasOwnProperty("prefix")) {
+        if (typeof exportSettings.prefix === "string") {
+            prefix = exportSettings.prefix;
+        } else {
+            throw new Error(
+                "Prefix defined in export settings object has not the type of String.",
             );
-            const docCustom = resolveStringField(
-                doc.custom,
-                custom,
-                "doc.custom",
+        }
+    }
+
+    if (exportSettings.hasOwnProperty("custom")) {
+        if (typeof exportSettings.custom === "string") {
+            custom = exportSettings.custom;
+        } else {
+            throw new Error(
+                "Custom input defined in export settings object has not the type of String.",
             );
-            const docSeed = resolveStringField(doc.seed, seed, "doc.seed");
-            const docSuffix = resolveStringField(
-                doc.suffix,
-                suffix,
-                "doc.suffix",
+        }
+    }
+
+    if (exportSettings.hasOwnProperty("seed")) {
+        if (typeof exportSettings.seed === "string") {
+            seed = exportSettings.seed;
+        } else {
+            throw new Error(
+                "Seed input defined in export settings object has not the type of String.",
             );
+        }
+    }
+
+    if (exportSettings.hasOwnProperty("suffix")) {
+        if (typeof exportSettings.suffix === "string") {
+            suffix = exportSettings.suffix;
+        } else {
+            throw new Error(
+                "Suffix input defined in export settings object has not the type of String.",
+            );
+        }
+    }
+
+    // The keyListener function listens to keyup + keydown actions
+    // all keys pushed down + released are tracked in exportKeys
+    // is both ctrl + s are true together, the keyListener function triggers the export:
+    // - Constructing the name based on the provided parameters
+    // - Converting the canvas to a dataURL and stringifying it
+    // - Sending it through the Websocket to the server side (node)
+    window.onkeydown = keyListener;
+    window.onkeyup = keyListener;
+    let exportKeys = {};
+    let exportCount = parseInt(sessionStorage.getItem("exportCount") || "0");
+    let svgExportCount = parseInt(
+        sessionStorage.getItem("svgExportCount") || "0",
+    );
+    let imageData = "";
+    function keyListener(event) {
+        exportKeys[event.key] = event.type == "keydown";
+        if (exportKeys["Control"] && exportKeys["s"]) {
+            event.preventDefault();
+            exportCount++;
+            sessionStorage.setItem("exportCount", exportCount);
+            const count = exportCount.toString().padStart(3, "0");
             const exportName = buildExportName(
-                docPrefix,
-                docCustom,
-                docSeed,
+                prefix,
+                custom,
+                seed,
                 date,
-                docSuffix,
+                suffix,
                 count,
-                ".svg",
+                ".png",
             );
-            if (!svgToString) {
-                console.warn(
-                    "SVG export not available — kandi-tools/svg not loaded",
-                );
-                return;
-            }
-            const svgData = svgToString(doc.svgDoc);
+            imageData = canvas.toDataURL().split(",")[1];
             ws.send(
                 JSON.stringify({
-                    type: "svg-export",
+                    type: "export",
                     filename: exportName,
-                    data: svgData,
+                    data: imageData,
                 }),
             );
+        } else if (exportKeys["Control"] && exportKeys["e"]) {
+            event.preventDefault();
+            svgExportCount++;
+            sessionStorage.setItem("svgExportCount", svgExportCount);
+            // Check if we can export an svg
+            if (!renderResult || !renderResult.hasOwnProperty("svgDocs")) {
+                return;
+            }
+            const svgDocs = renderResult.svgDocs;
+            // Loop over all objects to export
+            for (let i = 0; i < svgDocs.length; i++) {
+                const doc = svgDocs[i];
+                const count = svgExportCount.toString().padStart(3, "0");
+                // Based on input, check if it is valid
+                const docPrefix = resolveStringField(
+                    doc.prefix,
+                    prefix,
+                    "doc.prefix",
+                );
+                const docCustom = resolveStringField(
+                    doc.custom,
+                    custom,
+                    "doc.custom",
+                );
+                const docSeed = resolveStringField(doc.seed, seed, "doc.seed");
+                const docSuffix = resolveStringField(
+                    doc.suffix,
+                    suffix,
+                    "doc.suffix",
+                );
+                const exportName = buildExportName(
+                    docPrefix,
+                    docCustom,
+                    docSeed,
+                    date,
+                    docSuffix,
+                    count,
+                    ".svg",
+                );
+                if (!svgToString) {
+                    console.warn(
+                        "SVG export not available — kandi-tools/svg not loaded",
+                    );
+                    return;
+                }
+                const svgData = svgToString(doc.svgDoc);
+                ws.send(
+                    JSON.stringify({
+                        type: "svg-export",
+                        filename: exportName,
+                        data: svgData,
+                    }),
+                );
+            }
         }
     }
-}
+})();
 
 function buildExportName(prefix, custom, seed, date, suffix, count, ext) {
     let name = "";
@@ -335,3 +333,16 @@ function resolveStringField(value, fallback, fieldName) {
         throw new Error(`${fieldName} must be a string`);
     return value;
 }
+
+// fitToViewport utility function to make sure the canvas is always nicely centered in the window
+const fitToViewport = () => {
+    const padding = 0.9;
+    const scaleX = (window.innerWidth * padding) / canvas.width;
+    const scaleY = (window.innerHeight * padding) / canvas.height;
+    const scaleFit = Math.min(scaleX, scaleY);
+    canvas.style.transform = `translate(-50%, -50%) scale(${scaleFit})`;
+};
+
+// Check for resizes and use the fitToViewport() function if so
+fitToViewport();
+window.addEventListener("resize", fitToViewport);
