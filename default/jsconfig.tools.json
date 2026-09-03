@@ -6,7 +6,8 @@
             "kandi-tools/math": ["./kandi-tools/math/index.js"],
             "kandi-tools/svg": ["./kandi-tools/svg/index.js"],
             "kandi-tools/random": ["./kandi-tools/random/index.js"],
-            "kandi-tools/images": ["./kandi-tools/images/index.js"]
+            "kandi-tools/images": ["./kandi-tools/images/index.js"],
+            "kandi-tools/color": ["./kandi-tools/color/index.js"]
         }
     }
 }

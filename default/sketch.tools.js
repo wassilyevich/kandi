@@ -5,6 +5,7 @@
 // import { createSVG, addLayer, addPolyline } from 'kandi-tools/svg';
 // import {createNoise} from 'kandi-tools/random';
 // import {loadImage, getImageData, sampleColor, sampleBrightness} from 'kandi-tools/images'
+// import {parseColor} from 'kandi-tools/color'
 // Standard sketch settings:
 export const settings = {
     dimensions: [500, 500], //in units; can also be "A4" for example.
