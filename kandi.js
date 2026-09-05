@@ -147,6 +147,8 @@ function newSketch() {
         // Copy kandi-tools into sketch folder
         fs.cpSync(kandiToolsPath, path.join(newSketchPath, "kandi-tools"), {
             recursive: true,
+            force: true,
+            filter: (src) => !src.includes(".git"),
         });
 
         fs.copyFileSync(

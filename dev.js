@@ -11,8 +11,13 @@ const DIR = process.cwd();
 const TYPES = {
     ".html": "text/html",
     ".js": "text/javascript",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
 };
-
 // Read the .kandi.json config file if it exists
 const kandiConfigPath = path.join(DIR, ".kandi.json");
 let kandiConfig = {};
@@ -40,7 +45,12 @@ const server = http.createServer((req, res) => {
         res.end("Not found");
         return;
     }
-    const file = fs.readFileSync(filePath);
+    const isBinary = [".jpg", ".jpeg", ".png", ".gif"].includes(
+        path.extname(filePath),
+    );
+    const file = isBinary
+        ? fs.readFileSync(filePath)
+        : fs.readFileSync(filePath, "utf8");
     const type = TYPES[path.extname(filePath)];
 
     // Write the header and the file to send it back to the browser
