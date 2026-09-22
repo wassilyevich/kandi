@@ -6,6 +6,8 @@ const path = require("path");
 const os = require("os");
 const { spawn } = require("child_process");
 
+// Builder load
+const { buildIndex, buildSketch } = require("./builder");
 // Define variables and important paths
 const cwd = process.cwd();
 const defaultFilesPath = path.join(__dirname, "default");
@@ -30,7 +32,8 @@ let isJump = false;
 let outputPath = "";
 let isConfig = false;
 let verbose = false;
-let useTools = false;
+let isTools = false;
+let isGui = false;
 
 // Start of argument parsing of the CLI tool
 // Each argument that is passed is checked against the available commands
@@ -79,8 +82,9 @@ for (let i = 0; i < args.length; i++) {
         // Triggering verbose output
         verbose = true;
     } else if (args[i] === "--tools") {
-        // Choose different template including kandi tools
-        useTools = true;
+        isTools = true;
+    } else if (args[i] === "--gui") {
+        isGui = true;
     }
 }
 
@@ -134,16 +138,15 @@ function newSketch() {
         path.join(defaultFilesPath, "runner.js"),
         path.join(newSketchPath, "runner.js"),
     );
-    // Copy index.html and sketch.js based on template flag (currently no flag or tools)
-    if (useTools) {
-        fs.copyFileSync(
-            path.join(defaultFilesPath, "index.tools.html"),
-            path.join(newSketchPath, "index.html"),
-        );
-        fs.copyFileSync(
-            path.join(defaultFilesPath, "sketch.tools.js"),
-            path.join(newSketchPath, `${baseName}.js`),
-        );
+    fs.writeFileSync(
+        path.join(newSketchPath, "index.html"),
+        buildIndex({ isTools, isGui }),
+    );
+    fs.writeFileSync(
+        path.join(newSketchPath, `${baseName}.js`),
+        buildSketch({ isTools, isGui }),
+    );
+    if (isTools) {
         // Copy kandi-tools into sketch folder
         fs.cpSync(kandiToolsPath, path.join(newSketchPath, "kandi-tools"), {
             recursive: true,
@@ -155,33 +158,25 @@ function newSketch() {
             path.join(defaultFilesPath, "jsconfig.tools.json"),
             path.join(newSketchPath, "jsconfig.json"),
         );
-        fs.copyFileSync(
-            path.join(dataPath, "paper-sizes.js"),
-            path.join(newSketchPath, "paper-sizes.js"),
+    }
+    if (isGui) {
+        const tweakpanePath = path.dirname(
+            require.resolve("tweakpane/package.json"),
         );
-        fs.copyFileSync(
-            path.join(dataPath, "units.js"),
-            path.join(newSketchPath, "units.js"),
-        );
-    } else {
-        fs.copyFileSync(
-            path.join(defaultFilesPath, "index.html"),
-            path.join(newSketchPath, "index.html"),
-        );
-        fs.copyFileSync(
-            path.join(defaultFilesPath, "sketch.js"),
-            path.join(newSketchPath, `${baseName}.js`),
-        );
-        fs.copyFileSync(
-            path.join(dataPath, "paper-sizes.js"),
-            path.join(newSketchPath, "paper-sizes.js"),
-        );
-        fs.copyFileSync(
-            path.join(dataPath, "units.js"),
-            path.join(newSketchPath, "units.js"),
+        fs.cpSync(
+            path.join(tweakpanePath, "dist"),
+            path.join(newSketchPath, "tweakpane"),
+            { recursive: true, force: true },
         );
     }
-
+    fs.copyFileSync(
+        path.join(dataPath, "paper-sizes.js"),
+        path.join(newSketchPath, "paper-sizes.js"),
+    );
+    fs.copyFileSync(
+        path.join(dataPath, "units.js"),
+        path.join(newSketchPath, "units.js"),
+    );
     const runnerPath = path.join(newSketchPath, "runner.js");
     const runnerContent = fs.readFileSync(runnerPath, "utf8");
     const updatedRunner = runnerContent.replace(
