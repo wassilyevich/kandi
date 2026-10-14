@@ -25,8 +25,25 @@ if (fs.existsSync(kandiConfigPath)) {
     kandiConfig = JSON.parse(fs.readFileSync(kandiConfigPath, "utf-8"));
 }
 
-// Define output path based on config file or fall back onto manually set path
-const outputPath = kandiConfig.outputPath || "/mnt/d/DefaultDownloads/";
+// Local date as YYYY-MM-DD (not toISOString(), which is UTC)
+function today() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// Configured path: use it exactly as given.
+// No path configured: <sketch folder>/output/<today>
+function exportDir() {
+    return kandiConfig.outputPath || path.join(DIR, "output", today());
+}
+
+function writeExport(filename, data) {
+    const dir = exportDir();
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, filename), data);
+    return dir;
+}
 
 // Create an http server that takes in a request and a response
 const server = http.createServer((req, res) => {
@@ -92,14 +109,15 @@ wss.on("connection", (client) => {
     client.on("message", (message) => {
         const msg = JSON.parse(message);
         if (msg.type === "export") {
-            const buffer = Buffer.from(msg.data, "base64");
-            fs.mkdirSync(outputPath, { recursive: true });
-            fs.writeFileSync(path.join(outputPath, msg.filename), buffer);
+            const dir = writeExport(
+                msg.filename,
+                Buffer.from(msg.data, "base64"),
+            );
+            console.log(`Exported .png: ${msg.filename} to ${dir}`);
             console.log(`Exported .png: ${msg.filename} to ${outputPath}`);
         } else if (msg.type === "svg-export") {
-            fs.mkdirSync(outputPath, { recursive: true });
-            fs.writeFileSync(path.join(outputPath, msg.filename), msg.data);
-            console.log(`Exported .svg: ${msg.filename} to ${outputPath}`);
+            const dir = writeExport(msg.filename, msg.data);
+            console.log(`Exported .svg: ${msg.filename} to ${dir}`);
         }
     });
 });

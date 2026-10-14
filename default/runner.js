@@ -7,7 +7,7 @@ import validUnits from "./units.js";
 let svgToString = null;
 try {
     const svgModule = await import("kandi-tools/svg");
-    svgToString = svgModule.toString;
+    svgToString = svgModule.svgToString();
 } catch {
     // kandi-tools not available, SVG export disabled
 }

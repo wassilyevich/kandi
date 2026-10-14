@@ -20,7 +20,7 @@ let globalConfig = {};
 if (fs.existsSync(configPath)) {
     globalConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
 }
-let defaultOutputPath = "/mnt/d/DefaultDownloads/";
+let defaultOutputPath = null;
 const defaultSketchName = "sketch";
 const devServerPath = path.join(__dirname, "dev.js");
 
@@ -196,8 +196,8 @@ function runDev() {
     const newSketchPath = path.join(cwd, baseName);
     const kandiConfig = {
         sketchFile: baseName + ".js",
-        outputPath: resolvedOutputPath,
     };
+    if (resolvedOutputPath) kandiConfig.outputPath = resolvedOutputPath;
     fs.writeFileSync(
         path.join(newSketchPath, ".kandi.json"),
         JSON.stringify(kandiConfig, null, 2),
